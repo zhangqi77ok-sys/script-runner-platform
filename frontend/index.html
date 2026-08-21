@@ -24,7 +24,7 @@
       <section v-if="view === 'overview'" class="content">
         <div class="metrics"><div class="metric"><span>脚本版本</span><strong>{{ scripts.length }}</strong><small>已导入</small></div><div class="metric"><span>任务</span><strong>{{ tasks.length }}</strong><small>已配置</small></div><div class="metric"><span>执行记录</span><strong>{{ runs.length }}</strong><small>最近 100 条</small></div><div class="metric"><span>运行节点</span><strong class="success">在线</strong><small>Docker 沙盒</small></div></div>
         <div class="section-head"><div><h2>最近执行</h2><p>查看任务状态与失败原因</p></div><button class="ghost" @click="view='runs'">查看全部</button></div>
-        <RunTable :runs="runs.slice(0, 8)" @view-log="viewLog"></RunTable>
+        <run-table :runs="runs.slice(0, 8)" @view-log="viewLog"></run-table>
         <div v-if="!loading && !scripts.length" class="empty-action"><strong>还没有脚本</strong><span>先导入一个 ZIP 脚本包，随后在任务管理中配置执行。</span><button class="primary" @click="view='scripts'">去导入脚本</button></div>
       </section>
       <section v-else-if="view === 'scripts'" class="content">
@@ -38,7 +38,7 @@
         <div v-if="!scripts.length" class="inline-hint">暂无可用脚本，请先到“脚本管理”导入脚本。</div>
         <div class="table-wrap"><table><thead><tr><th>任务名称</th><th>脚本</th><th>调度</th><th>超时</th><th>状态</th><th>操作</th></tr></thead><tbody><tr v-for="item in tasks" :key="item.id"><td class="strong">{{ item.name }}</td><td>{{ item.script_name }} <span class="muted">v{{ item.script_version }}</span></td><td><code>{{ item.schedule || '手动' }}</code></td><td>{{ item.timeout_seconds }} 秒</td><td><button class="switch" :class="{on: item.enabled}" @click="toggleTask(item)">{{ item.enabled ? '已启用' : '已停用' }}</button></td><td><button class="action" @click="runTask(item.id)">立即执行</button></td></tr><tr v-if="!tasks.length"><td colspan="6" class="empty">先导入脚本，再创建任务</td></tr></tbody></table></div>
       </section>
-      <section v-else-if="view === 'runs'" class="content"><div class="section-head"><div><h2>执行记录</h2><p>任务输出保存在本地日志目录。</p></div></div><RunTable :runs="runs" @view-log="viewLog"></RunTable></section>
+      <section v-else-if="view === 'runs'" class="content"><div class="section-head"><div><h2>执行记录</h2><p>任务输出保存在本地日志目录。</p></div></div><run-table :runs="runs" @view-log="viewLog"></run-table></section>
       <section v-else class="content"><div class="section-head"><div><h2>AI 配置</h2><p>AI 密钥应由部署环境注入，平台只保存配置元数据。</p></div></div><div class="empty-state"><strong>AI 配置模块已预留</strong><span>下一阶段接入加密配置和执行时临时注入。</span></div></section>
     </main>
     <div v-if="logPanel.open" class="modal-backdrop" @click.self="closeLog"><section class="log-modal"><header><div><h2>执行日志</h2><p>{{ logPanel.item && logPanel.item.task_name }} · #{{ logPanel.item && logPanel.item.id }}</p></div><button class="ghost" @click="closeLog">关闭</button></header><pre v-if="!logPanel.loading">{{ logPanel.content }}</pre><div v-else class="log-loading">正在加载日志...</div></section></div>
