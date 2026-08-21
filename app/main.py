@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .db import connect, initialize_db
 from .executor import ExecutionError, run_in_docker
+from .logs import read_log
 from .packages import PackageError, copy_directory, extract_zip
 from .storage import DATA_ROOT, initialize_storage, safe_child_path
 from .scheduler import TaskScheduler
@@ -142,6 +143,21 @@ def executions():
     with connect() as db:
         rows = db.execute("SELECT executions.*, tasks.name task_name FROM executions JOIN tasks ON tasks.id=executions.task_id ORDER BY executions.id DESC LIMIT 100").fetchall()
         return [dict(row) for row in rows]
+
+
+@app.get("/api/executions/{execution_id}/log")
+def execution_log(execution_id: int):
+    """返回指定执行记录的日志内容，供执行记录页面查看。"""
+    with connect() as db:
+        execution = db.execute("SELECT id, log_path FROM executions WHERE id=?", (execution_id,)).fetchone()
+    if execution is None:
+        raise HTTPException(404, "执行记录不存在")
+    try:
+        relative_path = Path(execution["log_path"]).resolve().relative_to((DATA_ROOT / "logs").resolve())
+        content = read_log(DATA_ROOT / "logs", str(relative_path))
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return {"id": execution_id, "content": content}
 
 
 if FRONTEND.exists():
