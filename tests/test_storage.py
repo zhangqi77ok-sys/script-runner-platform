@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from app.storage import safe_child_path
+from app.storage import DATA_ROOT, safe_child_path, stored_path
 
 
 class StoragePathTest(unittest.TestCase):
@@ -16,3 +16,7 @@ class StoragePathTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaises(ValueError):
                 safe_child_path(Path(directory), "..", "escape.txt")
+
+    def test_stored_path_maps_legacy_windows_path(self):
+        self.assertEqual(stored_path("logs/run.log"), DATA_ROOT / "logs" / "run.log")
+        self.assertEqual(stored_path(r"F:\old\data\logs\run.log"), DATA_ROOT / "logs" / "run.log")

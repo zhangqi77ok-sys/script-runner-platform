@@ -1,0 +1,9 @@
+.git
+.venv
+data
+__pycache__
+*.pyc
+server.log
+server-error.log
+tests
+examples

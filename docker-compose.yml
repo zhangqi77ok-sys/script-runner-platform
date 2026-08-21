@@ -1,0 +1,20 @@
+services:
+  runtime:
+    image: script-platform/python-pillow:3.12
+    build:
+      context: .
+      dockerfile: Dockerfile.runtime
+
+  platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: script-platform/platform:latest
+    depends_on:
+      - runtime
+    ports:
+      - "8790:8787"
+    volumes:
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped

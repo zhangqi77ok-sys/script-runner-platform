@@ -11,7 +11,7 @@ from .db import connect, initialize_db
 from .executor import ExecutionError, run_in_docker
 from .logs import read_log
 from .packages import PackageError, copy_directory, extract_zip
-from .storage import DATA_ROOT, initialize_storage, safe_child_path
+from .storage import DATA_ROOT, initialize_storage, safe_child_path, stored_path
 from .scheduler import TaskScheduler
 
 app = FastAPI(title="Script Platform", version="1.0.0")
@@ -62,7 +62,7 @@ async def import_script(package: UploadFile = File(...)):
         raise HTTPException(400, str(exc)) from exc
     with connect() as db:
         cursor = db.execute("INSERT INTO scripts(name,version,entrypoint,package_path,version_path,created_at) VALUES (?,?,?,?,?,?)",
-                            (info.name, info.version, info.entrypoint, str(package_root), str(version_root), now()))
+                            (info.name, info.version, info.entrypoint, str(package_root.relative_to(DATA_ROOT)), str(version_root.relative_to(DATA_ROOT)), now()))
         db.commit()
         return {"id": cursor.lastrowid, "name": info.name, "version": info.version, "entrypoint": info.entrypoint}
 
@@ -80,7 +80,7 @@ def import_directory(path: str = Form(...)):
         raise HTTPException(400, str(exc)) from exc
     with connect() as db:
         cursor = db.execute("INSERT INTO scripts(name,version,entrypoint,package_path,version_path,created_at) VALUES (?,?,?,?,?,?)",
-                            (info.name, info.version, info.entrypoint, str(source), str(version_root), now()))
+                            (info.name, info.version, info.entrypoint, str(source), str(version_root.relative_to(DATA_ROOT)), now()))
         db.commit()
         return {"id": cursor.lastrowid, "name": info.name, "version": info.version, "entrypoint": info.entrypoint}
 
@@ -112,12 +112,12 @@ def run_task(task_id: int):
         if task is None:
             raise HTTPException(404, "任务不存在")
         log_path = DATA_ROOT / "logs" / f"{uuid.uuid4().hex}.log"
-        cursor = db.execute("INSERT INTO executions(task_id,status,started_at,log_path) VALUES (?,?,?,?)", (task_id, "RUNNING", now(), str(log_path)))
+        cursor = db.execute("INSERT INTO executions(task_id,status,started_at,log_path) VALUES (?,?,?,?)", (task_id, "RUNNING", now(), str(log_path.relative_to(DATA_ROOT))))
         db.commit()
         execution_id = cursor.lastrowid
     status, error, exit_code = "SUCCESS", None, 0
     try:
-        exit_code = run_in_docker(Path(task["version_path"]), task["entrypoint"], task["timeout_seconds"], log_path, bool(task["network_enabled"]))
+        exit_code = run_in_docker(stored_path(task["version_path"]), task["entrypoint"], task["timeout_seconds"], log_path, bool(task["network_enabled"]))
         status = "SUCCESS" if exit_code == 0 else "FAILED"
     except ExecutionError as exc:
         status, error, exit_code = "FAILED", str(exc), None
@@ -153,7 +153,8 @@ def execution_log(execution_id: int):
     if execution is None:
         raise HTTPException(404, "执行记录不存在")
     try:
-        relative_path = Path(execution["log_path"]).resolve().relative_to((DATA_ROOT / "logs").resolve())
+        log_path = stored_path(execution["log_path"])
+        relative_path = log_path.resolve().relative_to((DATA_ROOT / "logs").resolve())
         content = read_log(DATA_ROOT / "logs", str(relative_path))
     except (ValueError, FileNotFoundError) as exc:
         raise HTTPException(404, str(exc)) from exc

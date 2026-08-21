@@ -15,3 +15,13 @@ def safe_child_path(root: Path, *parts: str) -> Path:
     if candidate != root_resolved and root_resolved not in candidate.parents:
         raise ValueError("路径不能越过存储根目录")
     return candidate
+
+
+def stored_path(value: str) -> Path:
+    """将数据库路径解析到当前部署的数据目录。"""
+    normalized = value.replace("\\", "/")
+    marker = "/data/"
+    if marker in normalized:
+        return DATA_ROOT / normalized.split(marker, 1)[1]
+    candidate = Path(value)
+    return candidate if candidate.is_absolute() else DATA_ROOT / candidate
